@@ -3,7 +3,7 @@ import 'package:test/test.dart';
 
 void main() {
   test('pure ASCII paragraphs preserve text and every source index', () {
-    const input = 'Plain English 2026, text: (1) + 2 = 3; $5.00!';
+    const input = r'Plain English 2026, text: (1) + 2 = 3; $5.00!';
     final paragraph = bidi.BidiString.fromLogical(input).paragraphs.single;
     expect(String.fromCharCodes(paragraph.bidiText), input);
     expect(paragraph.indices, List<int>.generate(input.length, (i) => i));
