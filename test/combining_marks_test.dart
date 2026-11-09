@@ -12,9 +12,9 @@ void main() {
   test('multiple niqqud marks remain in their original cluster order', () {
     // Avoid presentation-form composition (e.g. Shin + Shin Dot) so this
     // regression isolates visual mark attachment rather than normalization.
-    const input = 'א\u05B8\u05BCב';
+    const input = 'א\u05B0\u05B1ב';
     final paragraph = bidi.BidiString.fromLogical(input).paragraphs.single;
-    expect(String.fromCharCodes(paragraph.bidiText), 'בא\u05B8\u05BC');
+    expect(String.fromCharCodes(paragraph.bidiText), 'בא\u05B0\u05B1');
     expect(paragraph.indices, [3, 0, 1, 2]);
   });
 
