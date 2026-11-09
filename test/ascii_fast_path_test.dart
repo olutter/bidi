@@ -15,7 +15,7 @@ void main() {
     const input = 'First\r\nSecond\nThird\rFourth\u001cFifth';
     expect(String.fromCharCodes(bidi.logicalToVisual(input)), input);
     final paragraphs = bidi.BidiString.fromLogical(input).paragraphs;
-    expect(paragraphs, hasLength(5));
+    expect(paragraphs, hasLength(6)); // CR and LF are separate separators.
     for (final paragraph in paragraphs) {
       expect(
         paragraph.indices,
