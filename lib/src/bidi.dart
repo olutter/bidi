@@ -8,11 +8,10 @@ class BidiString {
   /// [text] is the original logical-ordered string. Returns the visual representation of the string.
   factory BidiString.fromLogical(String text) {
     final paragraphs = <Paragraph>[];
-    final codeUnits = text.codeUnits;
-
+    // Iterate Unicode scalar values, never individual UTF-16 surrogate
+    // halves. Reordering the halves separately corrupts supplementary text.
     var next = <int>[];
-    for (var i = 0; i < codeUnits.length; ++i) {
-      final char = codeUnits[i];
+    for (final char in text.runes) {
       final type = getCharacterType(char);
       if (type == CharacterType.separator) {
         final paragraph = Paragraph._(next, char);
@@ -89,24 +88,5 @@ String logicalToVisual2(
 /// 3.3.1.P1.
 @Deprecated('Please use BidiString.fromLogical')
 List<Paragraph> splitStringToParagraphs(String logicalString) {
-  final paragraphs = <Paragraph>[];
-  final codeUnits = logicalString.codeUnits;
-
-  var text = <int>[];
-  for (var i = 0; i < codeUnits.length; ++i) {
-    final char = codeUnits[i];
-    final type = getCharacterType(char);
-    if (type == CharacterType.separator) {
-      final paragraph = Paragraph._(text, char);
-      paragraphs.add(paragraph);
-      text = [];
-    } else {
-      text.add(char);
-    }
-  }
-  if (text.isNotEmpty) // string ended without a paragraph separator
-  {
-    paragraphs.add(Paragraph._(text, _BidiChars.notAChar));
-  }
-  return paragraphs;
+  return BidiString.fromLogical(logicalString).paragraphs;
 }
