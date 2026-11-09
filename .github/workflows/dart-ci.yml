@@ -1,0 +1,23 @@
+name: Dart checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  dart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Resolve dependencies
+        run: dart pub get
+      - name: Static analysis
+        run: dart analyze lib test
+      - name: Regression tests
+        run: dart test --reporter expanded
+      - name: Benchmark smoke run
+        run: dart run benchmark/bidi_benchmark.dart
