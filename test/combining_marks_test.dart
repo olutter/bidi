@@ -10,13 +10,12 @@ void main() {
   });
 
   test('multiple niqqud marks remain in their original cluster order', () {
-    const input = 'ש\u05B8\u05C1לו\u05B9ם';
+    // Avoid presentation-form composition (e.g. Shin + Shin Dot) so this
+    // regression isolates visual mark attachment rather than normalization.
+    const input = 'א\u05B8\u05BCב';
     final paragraph = bidi.BidiString.fromLogical(input).paragraphs.single;
-    expect(
-      String.fromCharCodes(paragraph.bidiText),
-      'םו\u05B9לש\u05B8\u05C1',
-    );
-    expect(paragraph.indices, [6, 4, 5, 3, 0, 1, 2]);
+    expect(String.fromCharCodes(paragraph.bidiText), 'בא\u05B8\u05BC');
+    expect(paragraph.indices, [3, 0, 1, 2]);
   });
 
   test('RTL combining marks inside a Latin paragraph remain attached', () {
