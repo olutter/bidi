@@ -678,6 +678,8 @@ void _resolveNeutralTypes(
   CharacterType eor,
   int level,
 ) {
+  _resolveBracketPairs(textData, start, limit, sor, level);
+
   // N1. A sequence of neutrals takes the direction of the surrounding strong text if the text on both sides has the same direction.
   //     European and Persian numbers act as if they were R in terms of their influence on neutrals.
   //     Start-of-level-run (sor) and end-of-level-run (eor) are used at level run boundaries.
