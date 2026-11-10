@@ -624,8 +624,12 @@ void _resolveWeakTypes(
     if (textData[i].type == CharacterType.et) {
       // locate end of sequence
       int runstart = i;
-      int runlimit =
-          _findRunLimit(textData, runstart, limit, [CharacterType.et]);
+      // W5 only accepts consecutive terminators; avoid allocating a
+      // temporary type-list and searching it for every character.
+      var runlimit = runstart + 1;
+      while (runlimit < limit && textData[runlimit].type == CharacterType.et) {
+        ++runlimit;
+      }
 
       // check values at ends of sequence
       CharacterType t = runstart == start ? sor : textData[runstart - 1].type;
@@ -691,17 +695,19 @@ void _resolveNeutralTypes(
         t == CharacterType.segmentSeparator) {
       // find bounds of run of neutrals
       int runstart = i;
-      int runlimit = _findRunLimit(
-        textData,
-        runstart,
-        limit,
-        [
-          CharacterType.separator,
-          CharacterType.segmentSeparator,
-          CharacterType.whitespace,
-          CharacterType.otherNeutrals
-        ],
-      );
+      // N1/N2: scan the neutral sequence directly; this avoids a new
+      // four-element set and inner membership loop for every neutral run.
+      var runlimit = runstart + 1;
+      while (runlimit < limit) {
+        final next = textData[runlimit].type;
+        if (next != CharacterType.separator &&
+            next != CharacterType.segmentSeparator &&
+            next != CharacterType.whitespace &&
+            next != CharacterType.otherNeutrals) {
+          break;
+        }
+        ++runlimit;
+      }
 
       // determine effective types at ends of run
       CharacterType leadingType;
@@ -855,28 +861,6 @@ void _fixMirroredCharacters(List<_CharData> textData) {
       textData[i].char = _getCharacterMirror(textData[i].char);
     }
   }
-}
-
-/// Return the limit of the run, starting at index, that includes only resultTypes in [validSet].
-/// This checks the value at index, and will return index if that value is not in [validSet].
-int _findRunLimit(
-  List<_CharData> textData,
-  int index,
-  int limit,
-  List<CharacterType> validSet,
-) {
-  --index;
-  bool found = false;
-  while (++index < limit) {
-    final t = textData[index].type;
-    found = false;
-    for (int i = 0; i < validSet.length && !found; ++i) {
-      if (t == validSet[i]) found = true;
-    }
-
-    if (!found) return index; // didn't find a match in validSet
-  }
-  return limit;
 }
 
 /// Set resultTypes from start up to (but not including) limit to newType.
