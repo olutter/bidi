@@ -27,6 +27,7 @@ class Paragraph {
   final Normalization n;
 
   final List<int> _indices = [];
+  final List<int> _sourceLengths = [];
 
   /// Original text.
   List<int> get text {
@@ -54,6 +55,10 @@ class Paragraph {
     return _indices;
   }
 
+  /// UTF-16 source span of each visual character, in the same order as
+  /// [indices], not including the optional paragraph separator.
+  List<int> get sourceLengths => _sourceLengths;
+
   /// The paragraph separatpr.
   int get separator => _separator;
 
@@ -80,6 +85,7 @@ class Paragraph {
       if (controlChars.contains(sb[i])) {
         sb.removeAt(i);
         _indices.removeAt(i);
+        _sourceLengths.removeAt(i);
       } else {
         ++i;
       }
@@ -117,6 +123,7 @@ class Paragraph {
       textData[i].type = getCharacterType(c);
       textData[i].char = c;
       textData[i].index = idx;
+      textData[i].sourceLength = lengths[i];
       idx += lengths[i];
 
       // X2. With each RLE, compute the least greater odd embedding level.
@@ -232,6 +239,11 @@ class Paragraph {
 
     _indices.clear();
     _indices.addAll(indexes);
+
+    _sourceLengths.clear();
+    for (final cd in textData) {
+      _sourceLengths.add(cd.sourceLength);
+    }
   }
 }
 
@@ -240,6 +252,7 @@ class _CharData {
   late int embeddingLevel; // 0-62 => 6
   late CharacterType type; // 0-18 => 5
   late int index;
+  late int sourceLength;
 }
 
 /// Return the strong type (L or R) corresponding to the embedding level.
