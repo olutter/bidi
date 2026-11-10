@@ -26,6 +26,25 @@ void main() {
     }
   });
 
+  test('a second alef remains separate after the first ligature', () {
+    for (final text in ['لااX', 'لأاX', 'لإاX', 'لآاX']) {
+      final paragraph = bidi.BidiString.fromLogical(text).paragraphs.single;
+      final visual = String.fromCharCodes(paragraph.bidiText);
+      expect(visual.runes.length, 3, reason: text);
+      expect(paragraph.indices[visual.indexOf('X')], 3, reason: text);
+      expect(paragraph.n.lengths.reduce((a, b) => a + b), 4,
+          reason: text);
+    }
+  });
+
+  test('a transparent Arabic mark does not lose the following index', () {
+    const text = 'ل\u064eاX';
+    final paragraph = bidi.BidiString.fromLogical(text).paragraphs.single;
+    final visual = String.fromCharCodes(paragraph.bidiText);
+    expect(paragraph.indices[visual.indexOf('X')], 3);
+    expect(paragraph.n.lengths.reduce((a, b) => a + b), text.length);
+  });
+
   test('ordinary Arabic words do not lose source offsets', () {
     const input = 'مرحباX';
     final paragraph = bidi.BidiString.fromLogical(input).paragraphs.single;
