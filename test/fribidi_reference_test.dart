@@ -6,7 +6,7 @@ import 'package:test/test.dart';
 /// paragraph direction. These fixtures intentionally contain only Hebrew,
 /// Latin, numbers and punctuation, excluding Arabic glyph shaping.
 void main() {
-  final fixtures = <_Fixture>[
+  const fixtures = <_Fixture>[
     _Fixture('abc אבג', 'abc גבא', [0, 1, 2, 3, 6, 5, 4]),
     _Fixture('אבג abc', 'abc גבא', [4, 5, 6, 3, 2, 1, 0]),
     _Fixture('אבג 2026', '2026 גבא', [4, 5, 6, 7, 3, 2, 1, 0]),
