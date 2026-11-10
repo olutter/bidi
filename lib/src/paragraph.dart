@@ -285,7 +285,8 @@ class Normalization {
         final chClass = _getCanonicalClass(character);
         // Some precomposed characters decompose into combining marks even
         // when their original bidi class is a strong letter.
-        if (!hasNSMs && getCharacterType(character) == CharacterType.nonspacingMark) {
+        if (!hasNSMs &&
+            getCharacterType(character) == CharacterType.nonspacingMark) {
           hasNSMs = true;
         }
         int k = text.length; // insertion point
@@ -852,10 +853,7 @@ void _reorderString(
     }
   }
 
-  // L3. L2 reverses characters inside odd-level runs, leaving combining
-  // marks before their base character and reversing the order of adjacent
-  // marks. Restore each reversed base+mark cluster in-place. Skipping the pass
-  // for unpointed text keeps the common case unchanged.
+  // L3 restores base+mark clusters reversed inside odd-level runs.
   if (!hasNonspacingMark) {
     return;
   }
