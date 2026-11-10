@@ -12,5 +12,5 @@ jobs:
         with:
           channel: stable
       - run: flutter pub get
-      - run: dart analyze lib test
+      - run: flutter analyze
       - run: dart test --reporter expanded
