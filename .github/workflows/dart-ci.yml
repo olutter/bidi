@@ -1,0 +1,16 @@
+name: Dart checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  dart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: dart analyze lib test
+      - run: dart test --reporter expanded
