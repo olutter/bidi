@@ -1,5 +1,4 @@
-/// A small, reproducible smoke benchmark. It prints timings rather than
-/// imposing machine-dependent performance thresholds.
+// Prints reproducible timings without machine-dependent thresholds.
 import 'package:bidi/bidi.dart' as bidi;
 
 void main() {
@@ -8,10 +7,8 @@ void main() {
         'זהו טקסט עברי עם PDF, Windows, מספרים 1234, וסימני פיסוק.',
     'vowelled Hebrew':
         'בְּרֵאשִׁית בָּרָא אֱלֹקִים אֵת הַשָּׁמַיִם וְאֵת הָאָרֶץ.',
-    'marker-heavy':
-        '${List<String>.filled(200, '\u200E').join()}Hello שלום',
-    'long paragraph':
-        List<String>.filled(100, 'שלום, World 2026;').join(' '),
+    'marker-heavy': '${List<String>.filled(200, '\u200E').join()}Hello שלום',
+    'long paragraph': List<String>.filled(100, 'שלום, World 2026;').join(' '),
   };
 
   const warmup = 50;
@@ -27,6 +24,7 @@ void main() {
     }
     watch.stop();
     final micros = watch.elapsedMicroseconds / iterations;
-    print('${entry.key}: ${micros.toStringAsFixed(1)} us/op (checksum=$checksum)');
+    print(
+        '${entry.key}: ${micros.toStringAsFixed(1)} us/op (checksum=$checksum)');
   }
 }

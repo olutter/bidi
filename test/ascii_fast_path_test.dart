@@ -2,6 +2,25 @@ import 'package:bidi/bidi.dart' as bidi;
 import 'package:test/test.dart';
 
 void main() {
+  test('all ASCII pairs match the full solver including control characters',
+      () {
+    for (var first = 0; first < 128; ++first) {
+      for (var second = 0; second < 128; ++second) {
+        final input = String.fromCharCodes([first, second]);
+        final optimized = bidi.BidiString.fromLogical(input).paragraphs;
+        // ignore: deprecated_member_use
+        final reference = bidi.splitStringToParagraphs(input);
+        expect(optimized.length, reference.length);
+        for (var index = 0; index < reference.length; ++index) {
+          expect(optimized[index].bidiText, reference[index].bidiText);
+          expect(optimized[index].indices, reference[index].indices);
+          expect(optimized[index].n.text, reference[index].n.text);
+          expect(optimized[index].n.lengths, reference[index].n.lengths);
+        }
+      }
+    }
+  });
+
   test('pure ASCII paragraphs preserve text and every source index', () {
     const input = r'Plain English 2026, text: (1) + 2 = 3; $5.00!';
     final paragraph = bidi.BidiString.fromLogical(input).paragraphs.single;
