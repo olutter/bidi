@@ -30,4 +30,13 @@ void main() {
     expect(bidi.getCharacterType(0x1DA00), bidi.CharacterType.nonspacingMark);
     expect(bidi.getCharacterType(0x10400), bidi.CharacterType.ltr);
   });
+
+  test('Unicode 15.1 defaults include unassigned RTL and ignorable scalars',
+      () {
+    expect(bidi.getCharacterType(0x10806), bidi.CharacterType.rtl);
+    expect(bidi.getCharacterType(0x10D28), bidi.CharacterType.al);
+    expect(bidi.getCharacterType(0x1EF00), bidi.CharacterType.rtl);
+    expect(bidi.getCharacterType(0xE0000), bidi.CharacterType.bn);
+    expect(bidi.getCharacterType(0x10FFFF), bidi.CharacterType.bn);
+  });
 }
