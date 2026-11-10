@@ -9,6 +9,7 @@ import 'dart:collection';
 
 part 'src/bidi.dart';
 part 'src/character_type.dart';
+part 'src/ascii_bidi_types.dart';
 part 'src/direction_override.dart';
 part 'src/shape_joining_type.dart';
 part 'src/decomposition_type.dart';

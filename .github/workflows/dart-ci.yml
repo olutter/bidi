@@ -1,0 +1,19 @@
+name: Dart checks
+
+on:
+  pull_request:
+  push:
+    branches: [main, 'codex/**', 'qa/**']
+
+jobs:
+  dart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: dart test --reporter expanded
+      - run: dart run benchmark/fast_character_classes_benchmark.dart

@@ -5932,5 +5932,11 @@ const characterTypes = <int, CharacterType>{
 ///
 /// Returns the character bidi [CharacterType].
 CharacterType getCharacterType(int character) {
+  if (character >= 0 && character < 0x80) {
+    return _asciiBidiTypes[character];
+  }
+  if (character >= 0x05D0 && character <= 0x05EA) {
+    return CharacterType.rtl;
+  }
   return characterTypes[character] ?? CharacterType.ltr;
 }
