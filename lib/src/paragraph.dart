@@ -19,6 +19,21 @@ class Paragraph {
     _removeBidiMarkers();
   }
 
+  /// ASCII is already in visual order under the default LTR paragraph base.
+  Paragraph._ascii(List<int> text, this._separator)
+      : n = Normalization._(
+          List<int>.of(text),
+          List<int>.filled(text.length, 1),
+          false,
+          false,
+        ) {
+    _originalText.addAll(text);
+    _bidiText.addAll(text);
+    for (var index = 0; index < text.length; ++index) {
+      _indices.add(index);
+    }
+  }
+
   final int _separator;
   final List<int> _originalText = [];
   final List<int> _bidiText = [];

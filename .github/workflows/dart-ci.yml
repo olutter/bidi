@@ -21,3 +21,5 @@ jobs:
         run: dart test --reporter expanded
       - name: Benchmark smoke run
         run: dart run benchmark/bidi_benchmark.dart
+      - name: ASCII benchmark smoke run
+        run: dart run benchmark/ascii_fast_path_benchmark.dart
