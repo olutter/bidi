@@ -105,9 +105,9 @@ void _resolveBracketPairs(List<_CharData> textData, int start, int limit,
   }
 
   final embeddingType = _typeForLevel(level);
-  final openings = pairs.keys.toList()..sort();
-  for (final opening in openings) {
-    final closing = pairs[opening]!;
+  for (var opening = start; opening < limit; ++opening) {
+    final closing = pairs[opening];
+    if (closing == null) continue;
     CharacterType? enclosedType;
     for (var i = opening + 1; i < closing; ++i) {
       final strong = _bracketStrongType(textData[i].type);
