@@ -13,8 +13,7 @@ class BidiString {
     var next = <int>[];
     for (var i = 0; i < codeUnits.length; ++i) {
       final char = codeUnits[i];
-      final type = getCharacterType(char);
-      if (type == CharacterType.separator) {
+      if (_isParagraphSeparator(char)) {
         final paragraph = Paragraph._(next, char);
         paragraphs.add(paragraph);
         next = [];
@@ -95,8 +94,7 @@ List<Paragraph> splitStringToParagraphs(String logicalString) {
   var text = <int>[];
   for (var i = 0; i < codeUnits.length; ++i) {
     final char = codeUnits[i];
-    final type = getCharacterType(char);
-    if (type == CharacterType.separator) {
+    if (_isParagraphSeparator(char)) {
       final paragraph = Paragraph._(text, char);
       paragraphs.add(paragraph);
       text = [];
@@ -110,3 +108,10 @@ List<Paragraph> splitStringToParagraphs(String logicalString) {
   }
   return paragraphs;
 }
+
+// ASCII has five paragraph separators; other scalars retain the Unicode lookup.
+bool _isParagraphSeparator(int character) => character < 0x80
+    ? character == 0x0A ||
+        character == 0x0D ||
+        (character >= 0x1C && character <= 0x1E)
+    : getCharacterType(character) == CharacterType.separator;
