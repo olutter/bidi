@@ -18,6 +18,7 @@ part 'src/letter_form.dart';
 part 'src/canonical_class.dart';
 part 'src/character_category.dart';
 part 'src/paragraph.dart';
+part 'src/paired_brackets.dart';
 part 'src/stack.dart';
 part 'src/character_mirror.dart';
 part 'src/bidi_characters.dart';

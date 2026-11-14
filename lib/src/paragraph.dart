@@ -261,11 +261,31 @@ class Normalization {
     this.text,
     this.lengths,
     this.hasPersian,
-    this.hasNonspacingMark,
-  );
+    this.hasNonspacingMark, [
+    this._plainHebrewAscii = false,
+  ]);
 
   /// Calculates the internal decomposition of the input text.
   factory Normalization.decompose(List<int> characters) {
+    // These scalars have no decomposition or combining marks, so neither
+    // normalization pass can change them or their source spans.
+    var plainHebrewAscii = true;
+    for (final character in characters) {
+      if (character > 0x7F && (character < 0x05D0 || character > 0x05EA)) {
+        plainHebrewAscii = false;
+        break;
+      }
+    }
+    if (plainHebrewAscii) {
+      return Normalization._(
+        List<int>.of(characters),
+        List<int>.filled(characters.length, 1),
+        false,
+        false,
+        true,
+      );
+    }
+
     final List<int> text = [];
     final List<int> lengths = [];
 
@@ -310,7 +330,7 @@ class Normalization {
 
   /// Compose.
   void _compose() {
-    if (text.isEmpty) {
+    if (_plainHebrewAscii || text.isEmpty) {
       return;
     }
 
@@ -521,6 +541,9 @@ class Normalization {
 
   /// Has Nonspacing Mark.
   final bool hasNonspacingMark;
+
+  /// True only when the input has already been proven normalization-inert.
+  final bool _plainHebrewAscii;
 }
 
 int _getPairwiseComposition(int first, int second) {
@@ -638,8 +661,12 @@ void _resolveWeakTypes(
     if (textData[i].type == CharacterType.et) {
       // locate end of sequence
       int runstart = i;
-      int runlimit =
-          _findRunLimit(textData, runstart, limit, [CharacterType.et]);
+      // W5 only accepts consecutive terminators; avoid allocating a
+      // temporary type-list and searching it for every character.
+      var runlimit = runstart + 1;
+      while (runlimit < limit && textData[runlimit].type == CharacterType.et) {
+        ++runlimit;
+      }
 
       // check values at ends of sequence
       CharacterType t = runstart == start ? sor : textData[runstart - 1].type;
@@ -692,6 +719,8 @@ void _resolveNeutralTypes(
   CharacterType eor,
   int level,
 ) {
+  _resolveBracketPairs(textData, start, limit, sor, level);
+
   // N1. A sequence of neutrals takes the direction of the surrounding strong text if the text on both sides has the same direction.
   //     European and Persian numbers act as if they were R in terms of their influence on neutrals.
   //     Start-of-level-run (sor) and end-of-level-run (eor) are used at level run boundaries.
@@ -705,17 +734,19 @@ void _resolveNeutralTypes(
         t == CharacterType.segmentSeparator) {
       // find bounds of run of neutrals
       int runstart = i;
-      int runlimit = _findRunLimit(
-        textData,
-        runstart,
-        limit,
-        [
-          CharacterType.separator,
-          CharacterType.segmentSeparator,
-          CharacterType.whitespace,
-          CharacterType.otherNeutrals
-        ],
-      );
+      // N1/N2: scan the neutral sequence directly; this avoids a new
+      // four-element set and inner membership loop for every neutral run.
+      var runlimit = runstart + 1;
+      while (runlimit < limit) {
+        final next = textData[runlimit].type;
+        if (next != CharacterType.separator &&
+            next != CharacterType.segmentSeparator &&
+            next != CharacterType.whitespace &&
+            next != CharacterType.otherNeutrals) {
+          break;
+        }
+        ++runlimit;
+      }
 
       // determine effective types at ends of run
       CharacterType leadingType;
@@ -869,28 +900,6 @@ void _fixMirroredCharacters(List<_CharData> textData) {
       textData[i].char = _getCharacterMirror(textData[i].char);
     }
   }
-}
-
-/// Return the limit of the run, starting at index, that includes only resultTypes in [validSet].
-/// This checks the value at index, and will return index if that value is not in [validSet].
-int _findRunLimit(
-  List<_CharData> textData,
-  int index,
-  int limit,
-  List<CharacterType> validSet,
-) {
-  --index;
-  bool found = false;
-  while (++index < limit) {
-    final t = textData[index].type;
-    found = false;
-    for (int i = 0; i < validSet.length && !found; ++i) {
-      if (t == validSet[i]) found = true;
-    }
-
-    if (!found) return index; // didn't find a match in validSet
-  }
-  return limit;
 }
 
 /// Set resultTypes from start up to (but not including) limit to newType.
