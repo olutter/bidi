@@ -227,7 +227,7 @@ class Paragraph {
       start = limit;
     }
 
-    _reorderString(textData, el);
+    _reorderString(textData, el, n.hasNonspacingMark);
     _fixMirroredCharacters(textData);
 
     _bidiText.clear();
@@ -311,6 +311,12 @@ class Normalization {
       for (int j = 0; j < buffer.length; ++j) {
         final character = buffer[j];
         final chClass = _getCanonicalClass(character);
+        // Some precomposed characters decompose into combining marks even
+        // when their original bidi class is a strong letter.
+        if (!hasNSMs &&
+            getCharacterType(character) == CharacterType.nonspacingMark) {
+          hasNSMs = true;
+        }
         int k = text.length; // insertion point
         if (chClass != _CanonicalClass.notReordered) {
           // bubble-sort combining marks as necessary
@@ -827,7 +833,11 @@ void _resolveImplicitTypes(
 }
 
 /// 3.4 Reordering Resolved Levels
-void _reorderString(List<_CharData> textData, int embeddingLevel) {
+void _reorderString(
+  List<_CharData> textData,
+  int embeddingLevel,
+  bool hasNonspacingMark,
+) {
   //L1. On each line, reset the embedding level of the following characters to the paragraph embedding level:
   //    1. Segment separators,
   //    2. Paragraph separators,
@@ -888,9 +898,39 @@ void _reorderString(List<_CharData> textData, int embeddingLevel) {
     }
   }
 
-  // TODO - L3. Combining marks applied to a right-to-left base character will at this point precede their base
-  // character. If the rendering engine expects them to follow the base characters in the final display process,
-  // then the ordering of the marks and the base character must be reversed.
+  // L3 restores base+mark clusters reversed inside odd-level runs.
+  if (!hasNonspacingMark) {
+    return;
+  }
+
+  var i = 0;
+  while (i < textData.length) {
+    final level = textData[i].embeddingLevel;
+    if ((level & 1) == 0 ||
+        getCharacterType(textData[i].char) != CharacterType.nonspacingMark) {
+      ++i;
+      continue;
+    }
+
+    final start = i;
+    do {
+      ++i;
+    } while (i < textData.length &&
+        textData[i].embeddingLevel == level &&
+        getCharacterType(textData[i].char) == CharacterType.nonspacingMark);
+
+    // A free-standing mark or a level boundary has no base to restore.
+    if (i >= textData.length || textData[i].embeddingLevel != level) {
+      continue;
+    }
+
+    for (var left = start, right = i; left < right; ++left, --right) {
+      final temp = textData[left];
+      textData[left] = textData[right];
+      textData[right] = temp;
+    }
+    ++i;
+  }
 }
 
 /// L4. A character is depicted by a mirrored glyph if and only if (a) the resolved directionality of that character is R, and (b) the Bidi_Mirrored property value of that character is true.
