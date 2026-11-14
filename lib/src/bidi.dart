@@ -8,10 +8,11 @@ class BidiString {
   /// [text] is the original logical-ordered string. Returns the visual representation of the string.
   factory BidiString.fromLogical(String text) {
     final paragraphs = <Paragraph>[];
+    final codeUnits = text.codeUnits;
     // Iterate Unicode scalar values, never individual UTF-16 surrogate
     // halves. Reordering the halves separately corrupts supplementary text.
     var next = <int>[];
-    for (final char in text.runes) {
+
     var asciiOnly = true;
     for (var i = 0; i < codeUnits.length; ++i) {
       final char = codeUnits[i];
