@@ -1,10 +1,8 @@
 name: Dart checks
-
 on:
   pull_request:
   push:
-    branches: [main, 'codex/**', 'qa/**']
-
+    branches: [main]
 jobs:
   dart:
     runs-on: ubuntu-latest
@@ -13,7 +11,13 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - run: flutter pub get
-      - run: flutter analyze
-      - run: dart test --reporter expanded
-      - run: dart run benchmark/fast_character_classes_benchmark.dart
+      - name: Resolve dependencies (including Flutter example)
+        run: flutter pub get
+      - name: Static analysis
+        run: flutter analyze
+      - name: Regression tests
+        run: dart test --reporter expanded
+      - name: Benchmark smoke run
+        run: dart run benchmark/bidi_benchmark.dart
+      - name: ASCII benchmark smoke run
+        run: dart run benchmark/ascii_fast_path_benchmark.dart

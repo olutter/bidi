@@ -9,15 +9,23 @@ class BidiString {
   factory BidiString.fromLogical(String text) {
     final paragraphs = <Paragraph>[];
     final codeUnits = text.codeUnits;
-
+    // Iterate Unicode scalar values, never individual UTF-16 surrogate
+    // halves. Reordering the halves separately corrupts supplementary text.
     var next = <int>[];
+
+    var asciiOnly = true;
     for (var i = 0; i < codeUnits.length; ++i) {
       final char = codeUnits[i];
+      if (char > 0x7F) {
+        asciiOnly = false;
+      }
       final type = getCharacterType(char);
       if (type == CharacterType.separator) {
-        final paragraph = Paragraph._(next, char);
+        final paragraph =
+            asciiOnly ? Paragraph._ascii(next, char) : Paragraph._(next, char);
         paragraphs.add(paragraph);
         next = [];
+        asciiOnly = true;
       } else {
         next.add(char);
       }
@@ -25,7 +33,9 @@ class BidiString {
 
     if (next.isNotEmpty) // string ended without a paragraph separator
     {
-      paragraphs.add(Paragraph._(next, _BidiChars.notAChar));
+      paragraphs.add(asciiOnly
+          ? Paragraph._ascii(next, _BidiChars.notAChar)
+          : Paragraph._(next, _BidiChars.notAChar));
     }
 
     return BidiString._(paragraphs);
@@ -50,7 +60,11 @@ List<int> logicalToVisual(String logicalString) {
 /// Implementation of the BIDI algorithm, as described in http://www.unicode.org/reports/tr9/tr9-17.html
 /// [logicalString] is the original logical-ordered string.
 /// [indexes] Implies where the original characters are.
-/// [lengths] Implies how many characters each original character occupies.
+/// [indexes] receives the original UTF-16 source offset for each visual
+/// character, including paragraph separators, across the full input.
+/// [lengths] receives the UTF-16 source span corresponding to each character
+/// (zero for an extra decomposition character). Both outputs append entries
+/// and preserve any elements already present in the provided lists.
 /// Returns the visual representation of the string.
 String logicalToVisual2(
   String logicalString,
@@ -73,9 +87,22 @@ String logicalToVisual2(
   final paragraphs = BidiString.fromLogical(logicalString).paragraphs;
 
   final sb = <int>[];
+  var sourceOffset = 0;
   for (final p in paragraphs) {
     sb.addAll(p.bidiText);
-    indexes.addAll(p.indices);
+    for (var i = 0; i < p.indices.length; ++i) {
+      indexes.add(sourceOffset + p.indices[i]);
+      lengths.add(p.sourceLengths[i]);
+    }
+    // Source offsets in Paragraph are relative to their own paragraph.
+    // Paragraph separators also occupy a visual position and source offset.
+    sourceOffset += String.fromCharCodes(p.text).length;
+    if (p.separator != _BidiChars.notAChar) {
+      indexes.add(sourceOffset);
+      final separatorLength = String.fromCharCode(p.separator).length;
+      lengths.add(separatorLength);
+      sourceOffset += separatorLength;
+    }
   }
 
   return String.fromCharCodes(sb);
@@ -89,24 +116,12 @@ String logicalToVisual2(
 /// 3.3.1.P1.
 @Deprecated('Please use BidiString.fromLogical')
 List<Paragraph> splitStringToParagraphs(String logicalString) {
-  final paragraphs = <Paragraph>[];
-  final codeUnits = logicalString.codeUnits;
-
-  var text = <int>[];
-  for (var i = 0; i < codeUnits.length; ++i) {
-    final char = codeUnits[i];
-    final type = getCharacterType(char);
-    if (type == CharacterType.separator) {
-      final paragraph = Paragraph._(text, char);
-      paragraphs.add(paragraph);
-      text = [];
-    } else {
-      text.add(char);
-    }
-  }
-  if (text.isNotEmpty) // string ended without a paragraph separator
-  {
-    paragraphs.add(Paragraph._(text, _BidiChars.notAChar));
-  }
-  return paragraphs;
+  return BidiString.fromLogical(logicalString).paragraphs;
 }
+
+// ASCII has five paragraph separators; other scalars retain the Unicode lookup.
+bool _isParagraphSeparator(int character) => character < 0x80
+    ? character == 0x0A ||
+        character == 0x0D ||
+        (character >= 0x1C && character <= 0x1E)
+    : getCharacterType(character) == CharacterType.separator;
