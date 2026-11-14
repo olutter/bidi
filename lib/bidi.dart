@@ -9,6 +9,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 part 'src/bidi.dart';
+part 'src/ascii_bidi_types.dart';
 part 'src/character_type.dart';
 part 'src/supplementary_bidi_types.dart';
 part 'src/direction_override.dart';
