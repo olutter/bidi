@@ -12,11 +12,19 @@ class BidiString {
     // halves. Reordering the halves separately corrupts supplementary text.
     var next = <int>[];
     for (final char in text.runes) {
+    var asciiOnly = true;
+    for (var i = 0; i < codeUnits.length; ++i) {
+      final char = codeUnits[i];
+      if (char > 0x7F) {
+        asciiOnly = false;
+      }
       final type = getCharacterType(char);
       if (type == CharacterType.separator) {
-        final paragraph = Paragraph._(next, char);
+        final paragraph =
+            asciiOnly ? Paragraph._ascii(next, char) : Paragraph._(next, char);
         paragraphs.add(paragraph);
         next = [];
+        asciiOnly = true;
       } else {
         next.add(char);
       }
@@ -24,7 +32,9 @@ class BidiString {
 
     if (next.isNotEmpty) // string ended without a paragraph separator
     {
-      paragraphs.add(Paragraph._(next, _BidiChars.notAChar));
+      paragraphs.add(asciiOnly
+          ? Paragraph._ascii(next, _BidiChars.notAChar)
+          : Paragraph._(next, _BidiChars.notAChar));
     }
 
     return BidiString._(paragraphs);

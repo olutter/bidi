@@ -19,6 +19,21 @@ class Paragraph {
     _removeBidiMarkers();
   }
 
+  /// ASCII is already in visual order under the default LTR paragraph base.
+  Paragraph._ascii(List<int> text, this._separator)
+      : n = Normalization._(
+          List<int>.of(text),
+          List<int>.filled(text.length, 1),
+          false,
+          false,
+        ) {
+    _originalText.addAll(text);
+    _bidiText.addAll(text);
+    for (var index = 0; index < text.length; ++index) {
+      _indices.add(index);
+    }
+  }
+
   final int _separator;
   final List<int> _originalText = [];
   final List<int> _bidiText = [];
@@ -63,30 +78,26 @@ class Paragraph {
 
   /// Removes Bidi markers from text.
   void _removeBidiMarkers() {
-    final controlChars = [
-      0x200F,
-      0x202B,
-      0x202E,
-      0x200E,
-      0x202A,
-      0x202D,
-      0x202C,
-    ];
-
-    final sb = _bidiText.toList();
-
-    int i = 0;
-    while (i < sb.length) {
-      if (controlChars.contains(sb[i])) {
-        sb.removeAt(i);
-        _indices.removeAt(i);
-      } else {
-        ++i;
+    // Compact both aligned arrays in place. Repeated removeAt() calls made
+    // marker-heavy paragraphs quadratic and allocated a duplicate text list.
+    var write = 0;
+    for (var read = 0; read < _bidiText.length; ++read) {
+      final character = _bidiText[read];
+      if (character == 0x200E ||
+          character == 0x200F ||
+          character == 0x202A ||
+          character == 0x202B ||
+          character == 0x202C ||
+          character == 0x202D ||
+          character == 0x202E) {
+        continue;
       }
+      _bidiText[write] = character;
+      _indices[write] = _indices[read];
+      ++write;
     }
-
-    _bidiText.clear();
-    _bidiText.addAll(sb);
+    _bidiText.length = write;
+    _indices.length = write;
   }
 
   // 3.3.2 Explicit Levels and Directions
@@ -219,19 +230,12 @@ class Paragraph {
     _reorderString(textData, el);
     _fixMirroredCharacters(textData);
 
-    List<int> indexes = [];
-
-    final List<int> sb = [];
-    for (final cd in textData) {
-      sb.add(cd.char);
-      indexes.add(cd.index);
-    }
-
     _bidiText.clear();
-    _bidiText.addAll(sb);
-
     _indices.clear();
-    _indices.addAll(indexes);
+    for (final cd in textData) {
+      _bidiText.add(cd.char);
+      _indices.add(cd.index);
+    }
   }
 }
 
@@ -268,12 +272,14 @@ class Normalization {
     var hasPersian = false;
     var hasNSMs = false;
 
+    // Reuse the temporary decomposition buffer for each input character.
+    final buffer = <int>[];
     for (int i = 0; i < characters.length; ++i) {
       final ct = getCharacterType(characters[i]);
       hasPersian |= ((ct == CharacterType.al) || (ct == CharacterType.an));
       hasNSMs |= (ct == CharacterType.nonspacingMark);
 
-      final buffer = <int>[];
+      buffer.clear();
       _getRecursiveDecomposition(false, characters[i], buffer);
       // Supplementary scalars occupy two UTF-16 code units. Preserve
       // original String offsets for visual-to-logical index consumers.
@@ -519,6 +525,12 @@ class Normalization {
 
 int _getPairwiseComposition(int first, int second) {
   if (first < 0 || first > 0xFFFF || second < 0 || second > 0xFFFF) {
+    return _BidiChars.notAChar;
+  }
+  // No canonical Unicode composition ends in an ASCII character.
+  // Avoid allocating a two-character String for every space, ASCII digit,
+  // punctuation mark, and Latin letter in a mixed Hebrew/English paragraph.
+  if (second < 0x80) {
     return _BidiChars.notAChar;
   }
 
