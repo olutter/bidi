@@ -1,3 +1,5 @@
+// A small, reproducible smoke benchmark. It prints timings rather than
+// imposing machine-dependent performance thresholds.
 // Prints reproducible timings without machine-dependent thresholds.
 import 'package:bidi/bidi.dart' as bidi;
 

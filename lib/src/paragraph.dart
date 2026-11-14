@@ -281,7 +281,9 @@ class Normalization {
 
       buffer.clear();
       _getRecursiveDecomposition(false, characters[i], buffer);
-      lengths.add(1 - buffer.length);
+      // Supplementary scalars occupy two UTF-16 code units. Preserve
+      // original String offsets for visual-to-logical index consumers.
+      lengths.add((characters[i] > 0xFFFF ? 2 : 1) - buffer.length);
       // add all of the characters in the decomposition.
       // (may be just the original character, if there was
       // no decomposition mapping)
