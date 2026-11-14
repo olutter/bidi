@@ -11,20 +11,13 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - name: Resolve dependencies including Flutter example
+      - name: Resolve dependencies (including Flutter example)
         run: flutter pub get
       - name: Static analysis
         run: flutter analyze
-      - name: Package and neutral-run tests
+      - name: Regression tests
         run: dart test --reporter expanded
-      - name: Optimized neutral-run benchmark
-        run: dart run benchmark/neutral_runs_benchmark.dart
-      - name: Compare upstream baseline on the same runner
-        run: |
-          git fetch origin ebef4fb3c8d43b7e5f22474db4d6e180959d507e --depth=1
-          git worktree add --detach /tmp/bidi-neutral-baseline FETCH_HEAD
-          mkdir -p /tmp/bidi-neutral-baseline/benchmark
-          cp benchmark/neutral_runs_benchmark.dart /tmp/bidi-neutral-baseline/benchmark/
-          cd /tmp/bidi-neutral-baseline
-          flutter pub get
-          dart run benchmark/neutral_runs_benchmark.dart
+      - name: Benchmark smoke run
+        run: dart run benchmark/bidi_benchmark.dart
+      - name: ASCII benchmark smoke run
+        run: dart run benchmark/ascii_fast_path_benchmark.dart
