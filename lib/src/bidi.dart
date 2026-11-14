@@ -101,3 +101,10 @@ String logicalToVisual2(
 List<Paragraph> splitStringToParagraphs(String logicalString) {
   return BidiString.fromLogical(logicalString).paragraphs;
 }
+
+// ASCII has five paragraph separators; other scalars retain the Unicode lookup.
+bool _isParagraphSeparator(int character) => character < 0x80
+    ? character == 0x0A ||
+        character == 0x0D ||
+        (character >= 0x1C && character <= 0x1E)
+    : getCharacterType(character) == CharacterType.separator;
