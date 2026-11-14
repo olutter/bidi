@@ -42,6 +42,7 @@ class Paragraph {
   final Normalization n;
 
   final List<int> _indices = [];
+  final List<int> _sourceLengths = [];
 
   /// Original text.
   List<int> get text {
@@ -68,6 +69,10 @@ class Paragraph {
   List<int> get indices {
     return _indices;
   }
+
+  /// UTF-16 source span of each visual character, in the same order as
+  /// [indices], not including the optional paragraph separator.
+  List<int> get sourceLengths => _sourceLengths;
 
   /// The paragraph separatpr.
   int get separator => _separator;
@@ -105,14 +110,20 @@ class Paragraph {
     // This method is implemented in such a way it handles the string in logical order,
     // rather than visual order, so it is easier to handle complex layouts. That is why
     // it is placed BEFORE ReorderString rather than AFTER it, as its number suggests.
+    final sourceIndices = <int>[];
+    var sourceOffset = 0;
+    for (final length in n.lengths) {
+      sourceIndices.add(sourceOffset);
+      sourceOffset += length;
+    }
+    final sourceLengths = n.lengths.toList();
     if (n.hasPersian) {
-      final shaped = n._performShaping();
+      final shaped = n._performShaping(sourceIndices, sourceLengths);
       n.text.clear();
       n.text.addAll(shaped);
     }
     int embeddingLevel = el;
     final text = n.text;
-    final lengths = n.lengths;
 
     final textData =
         List<_CharData>.generate(n.text.length, (index) => _CharData());
@@ -121,14 +132,14 @@ class Paragraph {
     var dos = DirectionOverride.neutral;
     final dosStack = _Stack<DirectionOverride>();
     _Stack<int> elStack = _Stack<int>();
-    int idx = 0;
+
     for (int i = 0; i < text.length; ++i) {
       bool x9Char = false;
       final c = text[i];
       textData[i].type = getCharacterType(c);
       textData[i].char = c;
-      textData[i].index = idx;
-      idx += lengths[i];
+      textData[i].index = sourceIndices[i];
+      textData[i].sourceLength = sourceLengths[i];
 
       // X2. With each RLE, compute the least greater odd embedding level.
       // X4. With each RLO, compute the least greater odd embedding level.
@@ -244,6 +255,7 @@ class _CharData {
   late int embeddingLevel; // 0-62 => 6
   late CharacterType type; // 0-18 => 5
   late int index;
+  late int sourceLength;
 }
 
 /// Return the strong type (L or R) corresponding to the embedding level.
@@ -412,7 +424,7 @@ class Normalization {
   /// 3.5 Shaping
   /// Implements rules R1-R7 and rules L1-L3 of section 8.2 (Persian) of the Unicode standard.
   // TODO - this code is very special-cased.
-  List<int> _performShaping() {
+  List<int> _performShaping(List<int> sourceIndices, List<int> sourceLengths) {
     var lastJt = ShapeJoiningType.nonJoining;
     var lastForm = LetterForm.isolated;
     int lastPos = 0;
@@ -462,6 +474,18 @@ class Normalization {
 
     final sb = <int>[];
 
+    // Source spans may overlap when a ligature spans transparent marks.
+    void finishLamAlef() {
+      final alefPos = sb.length;
+      sourceLengths[insertPos] = sourceIndices[alefPos] +
+          sourceLengths[alefPos] -
+          sourceIndices[insertPos];
+      sourceIndices.removeAt(alefPos);
+      sourceLengths.removeAt(alefPos);
+      lengths[insertPos] += lengths.removeAt(alefPos);
+      lastChar = _BidiChars.notAChar;
+    }
+
     for (int i = 0; i < text.length; ++i) {
       var ch = text[i];
       //string chStr = (ch).toString("X4");
@@ -485,46 +509,44 @@ class Normalization {
           switch (ch) {
             case _BidiChars.ARABIC_ALEF:
               sb[insertPos] = _BidiChars.ARABIC_LAM_ALEF_FINAL;
-              lengths.removeAt(insertPos);
+              finishLamAlef();
               continue;
 
             case _BidiChars.ARABIC_ALEF_MADDA_ABOVE:
               sb[insertPos] = _BidiChars.ARABIC_LAM_ALEF_MADDA_ABOVE_FINAL;
-              lengths.removeAt(insertPos);
-              lengths[insertPos] = lengths[insertPos] + 1;
+              finishLamAlef();
               continue;
 
             case _BidiChars.ARABIC_ALEF_HAMZA_ABOVE:
               sb[insertPos] = _BidiChars.ARABIC_LAM_ALEF_HAMZA_ABOVE_FINAL;
-              lengths.removeAt(insertPos);
+              finishLamAlef();
               continue;
 
             case _BidiChars.ARABIC_ALEF_HAMZA_BELOW:
               sb[insertPos] = _BidiChars.ARABIC_LAM_ALEF_HAMZA_BELOW_FINAL;
-              lengths.removeAt(insertPos);
+              finishLamAlef();
               continue;
           }
         } else if (letterForms[lastPos] == LetterForm.initial) {
           switch (ch) {
             case _BidiChars.ARABIC_ALEF:
               sb[insertPos] = _BidiChars.ARABIC_LAM_ALEF_ISOLATED;
-              lengths.removeAt(insertPos);
+              finishLamAlef();
               continue;
 
             case _BidiChars.ARABIC_ALEF_MADDA_ABOVE:
               sb[insertPos] = _BidiChars.ARABIC_LAM_ALEF_MADDA_ABOVE_ISOLATED;
-              lengths.removeAt(insertPos);
-              lengths[insertPos] = lengths[insertPos] + 1;
+              finishLamAlef();
               continue;
 
             case _BidiChars.ARABIC_ALEF_HAMZA_ABOVE:
               sb[insertPos] = _BidiChars.ARABIC_LAM_ALEF_HAMZA_ABOVE_ISOLATED;
-              lengths.removeAt(insertPos);
+              finishLamAlef();
               continue;
 
             case _BidiChars.ARABIC_ALEF_HAMZA_BELOW:
               sb[insertPos] = _BidiChars.ARABIC_LAM_ALEF_HAMZA_BELOW_ISOLATED;
-              lengths.removeAt(insertPos);
+              finishLamAlef();
               continue;
           }
         }

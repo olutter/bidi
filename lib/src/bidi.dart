@@ -60,7 +60,11 @@ List<int> logicalToVisual(String logicalString) {
 /// Implementation of the BIDI algorithm, as described in http://www.unicode.org/reports/tr9/tr9-17.html
 /// [logicalString] is the original logical-ordered string.
 /// [indexes] Implies where the original characters are.
-/// [lengths] Implies how many characters each original character occupies.
+/// [indexes] receives the original UTF-16 source offset for each visual
+/// character, including paragraph separators, across the full input.
+/// [lengths] receives the UTF-16 source span corresponding to each character
+/// (zero for an extra decomposition character). Both outputs append entries
+/// and preserve any elements already present in the provided lists.
 /// Returns the visual representation of the string.
 String logicalToVisual2(
   String logicalString,
@@ -83,9 +87,22 @@ String logicalToVisual2(
   final paragraphs = BidiString.fromLogical(logicalString).paragraphs;
 
   final sb = <int>[];
+  var sourceOffset = 0;
   for (final p in paragraphs) {
     sb.addAll(p.bidiText);
-    indexes.addAll(p.indices);
+    for (var i = 0; i < p.indices.length; ++i) {
+      indexes.add(sourceOffset + p.indices[i]);
+      lengths.add(p.sourceLengths[i]);
+    }
+    // Source offsets in Paragraph are relative to their own paragraph.
+    // Paragraph separators also occupy a visual position and source offset.
+    sourceOffset += String.fromCharCodes(p.text).length;
+    if (p.separator != _BidiChars.notAChar) {
+      indexes.add(sourceOffset);
+      final separatorLength = String.fromCharCode(p.separator).length;
+      lengths.add(separatorLength);
+      sourceOffset += separatorLength;
+    }
   }
 
   return String.fromCharCodes(sb);
