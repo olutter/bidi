@@ -19,6 +19,21 @@ class Paragraph {
     _removeBidiMarkers();
   }
 
+  /// ASCII is already in visual order under the default LTR paragraph base.
+  Paragraph._ascii(List<int> text, this._separator)
+      : n = Normalization._(
+          List<int>.of(text),
+          List<int>.filled(text.length, 1),
+          false,
+          false,
+        ) {
+    _originalText.addAll(text);
+    _bidiText.addAll(text);
+    for (var index = 0; index < text.length; ++index) {
+      _indices.add(index);
+    }
+  }
+
   final int _separator;
   final List<int> _originalText = [];
   final List<int> _bidiText = [];
@@ -63,30 +78,26 @@ class Paragraph {
 
   /// Removes Bidi markers from text.
   void _removeBidiMarkers() {
-    final controlChars = [
-      0x200F,
-      0x202B,
-      0x202E,
-      0x200E,
-      0x202A,
-      0x202D,
-      0x202C,
-    ];
-
-    final sb = _bidiText.toList();
-
-    int i = 0;
-    while (i < sb.length) {
-      if (controlChars.contains(sb[i])) {
-        sb.removeAt(i);
-        _indices.removeAt(i);
-      } else {
-        ++i;
+    // Compact both aligned arrays in place. Repeated removeAt() calls made
+    // marker-heavy paragraphs quadratic and allocated a duplicate text list.
+    var write = 0;
+    for (var read = 0; read < _bidiText.length; ++read) {
+      final character = _bidiText[read];
+      if (character == 0x200E ||
+          character == 0x200F ||
+          character == 0x202A ||
+          character == 0x202B ||
+          character == 0x202C ||
+          character == 0x202D ||
+          character == 0x202E) {
+        continue;
       }
+      _bidiText[write] = character;
+      _indices[write] = _indices[read];
+      ++write;
     }
-
-    _bidiText.clear();
-    _bidiText.addAll(sb);
+    _bidiText.length = write;
+    _indices.length = write;
   }
 
   // 3.3.2 Explicit Levels and Directions
@@ -219,19 +230,12 @@ class Paragraph {
     _reorderString(textData, el);
     _fixMirroredCharacters(textData);
 
-    List<int> indexes = [];
-
-    final List<int> sb = [];
-    for (final cd in textData) {
-      sb.add(cd.char);
-      indexes.add(cd.index);
-    }
-
     _bidiText.clear();
-    _bidiText.addAll(sb);
-
     _indices.clear();
-    _indices.addAll(indexes);
+    for (final cd in textData) {
+      _bidiText.add(cd.char);
+      _indices.add(cd.index);
+    }
   }
 }
 
@@ -257,25 +261,49 @@ class Normalization {
     this.text,
     this.lengths,
     this.hasPersian,
-    this.hasNonspacingMark,
-  );
+    this.hasNonspacingMark, [
+    this._plainHebrewAscii = false,
+  ]);
 
   /// Calculates the internal decomposition of the input text.
   factory Normalization.decompose(List<int> characters) {
+    // These scalars have no decomposition or combining marks, so neither
+    // normalization pass can change them or their source spans.
+    var plainHebrewAscii = true;
+    for (final character in characters) {
+      if (character > 0x7F && (character < 0x05D0 || character > 0x05EA)) {
+        plainHebrewAscii = false;
+        break;
+      }
+    }
+    if (plainHebrewAscii) {
+      return Normalization._(
+        List<int>.of(characters),
+        List<int>.filled(characters.length, 1),
+        false,
+        false,
+        true,
+      );
+    }
+
     final List<int> text = [];
     final List<int> lengths = [];
 
     var hasPersian = false;
     var hasNSMs = false;
 
+    // Reuse the temporary decomposition buffer for each input character.
+    final buffer = <int>[];
     for (int i = 0; i < characters.length; ++i) {
       final ct = getCharacterType(characters[i]);
       hasPersian |= ((ct == CharacterType.al) || (ct == CharacterType.an));
       hasNSMs |= (ct == CharacterType.nonspacingMark);
 
-      final buffer = <int>[];
+      buffer.clear();
       _getRecursiveDecomposition(false, characters[i], buffer);
-      lengths.add(1 - buffer.length);
+      // Supplementary scalars occupy two UTF-16 code units. Preserve
+      // original String offsets for visual-to-logical index consumers.
+      lengths.add((characters[i] > 0xFFFF ? 2 : 1) - buffer.length);
       // add all of the characters in the decomposition.
       // (may be just the original character, if there was
       // no decomposition mapping)
@@ -302,7 +330,7 @@ class Normalization {
 
   /// Compose.
   void _compose() {
-    if (text.isEmpty) {
+    if (_plainHebrewAscii || text.isEmpty) {
       return;
     }
 
@@ -513,10 +541,19 @@ class Normalization {
 
   /// Has Nonspacing Mark.
   final bool hasNonspacingMark;
+
+  /// True only when the input has already been proven normalization-inert.
+  final bool _plainHebrewAscii;
 }
 
 int _getPairwiseComposition(int first, int second) {
   if (first < 0 || first > 0xFFFF || second < 0 || second > 0xFFFF) {
+    return _BidiChars.notAChar;
+  }
+  // No canonical Unicode composition ends in an ASCII character.
+  // Avoid allocating a two-character String for every space, ASCII digit,
+  // punctuation mark, and Latin letter in a mixed Hebrew/English paragraph.
+  if (second < 0x80) {
     return _BidiChars.notAChar;
   }
 
@@ -624,8 +661,12 @@ void _resolveWeakTypes(
     if (textData[i].type == CharacterType.et) {
       // locate end of sequence
       int runstart = i;
-      int runlimit =
-          _findRunLimit(textData, runstart, limit, [CharacterType.et]);
+      // W5 only accepts consecutive terminators; avoid allocating a
+      // temporary type-list and searching it for every character.
+      var runlimit = runstart + 1;
+      while (runlimit < limit && textData[runlimit].type == CharacterType.et) {
+        ++runlimit;
+      }
 
       // check values at ends of sequence
       CharacterType t = runstart == start ? sor : textData[runstart - 1].type;
@@ -678,6 +719,8 @@ void _resolveNeutralTypes(
   CharacterType eor,
   int level,
 ) {
+  _resolveBracketPairs(textData, start, limit, sor, level);
+
   // N1. A sequence of neutrals takes the direction of the surrounding strong text if the text on both sides has the same direction.
   //     European and Persian numbers act as if they were R in terms of their influence on neutrals.
   //     Start-of-level-run (sor) and end-of-level-run (eor) are used at level run boundaries.
@@ -691,17 +734,19 @@ void _resolveNeutralTypes(
         t == CharacterType.segmentSeparator) {
       // find bounds of run of neutrals
       int runstart = i;
-      int runlimit = _findRunLimit(
-        textData,
-        runstart,
-        limit,
-        [
-          CharacterType.separator,
-          CharacterType.segmentSeparator,
-          CharacterType.whitespace,
-          CharacterType.otherNeutrals
-        ],
-      );
+      // N1/N2: scan the neutral sequence directly; this avoids a new
+      // four-element set and inner membership loop for every neutral run.
+      var runlimit = runstart + 1;
+      while (runlimit < limit) {
+        final next = textData[runlimit].type;
+        if (next != CharacterType.separator &&
+            next != CharacterType.segmentSeparator &&
+            next != CharacterType.whitespace &&
+            next != CharacterType.otherNeutrals) {
+          break;
+        }
+        ++runlimit;
+      }
 
       // determine effective types at ends of run
       CharacterType leadingType;
@@ -855,28 +900,6 @@ void _fixMirroredCharacters(List<_CharData> textData) {
       textData[i].char = _getCharacterMirror(textData[i].char);
     }
   }
-}
-
-/// Return the limit of the run, starting at index, that includes only resultTypes in [validSet].
-/// This checks the value at index, and will return index if that value is not in [validSet].
-int _findRunLimit(
-  List<_CharData> textData,
-  int index,
-  int limit,
-  List<CharacterType> validSet,
-) {
-  --index;
-  bool found = false;
-  while (++index < limit) {
-    final t = textData[index].type;
-    found = false;
-    for (int i = 0; i < validSet.length && !found; ++i) {
-      if (t == validSet[i]) found = true;
-    }
-
-    if (!found) return index; // didn't find a match in validSet
-  }
-  return limit;
 }
 
 /// Set resultTypes from start up to (but not including) limit to newType.
