@@ -6,6 +6,9 @@ part of '../bidi.dart';
 ///
 /// The mirrored character, or the given character if no mirroring available.
 int _getCharacterMirror(int char) {
+  if (char >= 0x2E55 && char <= 0x2E5C) {
+    return char.isOdd ? char + 1 : char - 1;
+  }
   switch (char) {
     case 0x0028:
       return 0x0029;

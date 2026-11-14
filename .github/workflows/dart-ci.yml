@@ -13,20 +13,13 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - name: Resolve dependencies
+      - name: Resolve dependencies (including Flutter example)
         run: flutter pub get
       - name: Static analysis
         run: flutter analyze
       - name: Regression tests
         run: dart test --reporter expanded
-      - name: Optimized benchmark
-        run: dart run benchmark/plain_hebrew_benchmark.dart
-      - name: Main branch baseline on same runner
-        run: |
-          git fetch origin main --depth=1
-          git worktree add --detach /tmp/bidi-baseline FETCH_HEAD
-          mkdir -p /tmp/bidi-baseline/benchmark
-          cp benchmark/plain_hebrew_benchmark.dart /tmp/bidi-baseline/benchmark/
-          cd /tmp/bidi-baseline
-          flutter pub get
-          dart run benchmark/plain_hebrew_benchmark.dart
+      - name: Benchmark smoke run
+        run: dart run benchmark/bidi_benchmark.dart
+      - name: ASCII benchmark smoke run
+        run: dart run benchmark/ascii_fast_path_benchmark.dart

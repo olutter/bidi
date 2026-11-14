@@ -23,6 +23,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  material_ui: any
   bidi:
     path: ../
 
